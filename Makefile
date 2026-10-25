@@ -48,7 +48,7 @@ endif
 
 
 CFLAGS := -target x86_64-scei-ps4-elf -funwind-tables \
-          -fuse-init-array -isysroot $(OO_PS4_TOOLCHAIN) \
+           -isysroot $(OO_PS4_TOOLCHAIN) \
 	  -isystem $(OO_PS4_TOOLCHAIN)/include -I. -Wall \
 	  -DTITLE_ID='"$(TITLE_ID)"' -g
 

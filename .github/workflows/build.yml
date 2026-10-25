@@ -13,10 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Compiler
-        run: |
-          sudo ln -sf $(which clang) /usr/local/bin/clang-10
-          sudo ln -sf $(which ld.lld) /usr/local/bin/ld.lld-10
+      - name: Setup .NET 3.1 (for PkgTool.Core)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '3.1.x'
 
       - name: Setup OpenOrbis Toolchain
         run: |
@@ -26,14 +26,12 @@ jobs:
           
           TC_ROOT="/opt/OpenOrbis/OpenOrbis/PS4Toolchain"
           sudo chmod -R +x "$TC_ROOT/bin"
-          
-          # Makefile'ın aradığı bin/linux klasörünü bağla
           sudo mkdir -p "$TC_ROOT/bin/linux"
           sudo cp -rf "$TC_ROOT/bin/"* "$TC_ROOT/bin/linux/" 2>/dev/null || true
-          
-          # PRX modüllerini bağla
           sudo mkdir -p "$TC_ROOT/src/modules"
           sudo find "$TC_ROOT" -name "*.prx" -exec cp -f {} "$TC_ROOT/src/modules/" \; || true
+          
+          sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-*/policy.xml || true
           
           echo "OO_PS4_TOOLCHAIN=$TC_ROOT" >> $GITHUB_ENV
           echo "PATH=$PATH:$TC_ROOT/bin:$TC_ROOT/bin/linux" >> $GITHUB_ENV
