@@ -1,0 +1,38 @@
+name: Build PS4 13.52 PKG
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-10 lld-10 imagemagick dotnet-runtime-3.1
+
+      - name: Setup OpenOrbis Toolchain
+        run: |
+          wget https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.2/OpenOrbis_PS4_Toolchain_v0.5.2_Linux.tar.gz
+          sudo tar -xzf OpenOrbis_PS4_Toolchain_v0.5.2_Linux.tar.gz -C /opt
+          sudo chmod -R +x /opt/OpenOrbis-PS4-Toolchain/bin/linux
+
+      - name: Build PKG
+        env:
+          OO_PS4_TOOLCHAIN: /opt/OpenOrbis-PS4-Toolchain
+        run: |
+          export PATH=$PATH:$OO_PS4_TOOLCHAIN/bin/linux
+          make
+
+      - name: Upload PKG as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiny-ps4-shell-13.52-pkg
+          path: "*.pkg"

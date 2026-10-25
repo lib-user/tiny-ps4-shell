@@ -208,6 +208,11 @@ along with this program; see the file COPYING. If not, see
 #define K755_COPYOUT               0x0028F900
 #define K900_COPYOUT               0x002715B0
 
+#define K1352_XFAST_SYSCALL         0x000001C0
+#define K1352_PRISON_0              0x01A5C0C0
+#define K1352_ROOTVNODE             0x02136E90
+#define K1352_COPYIN                0x00000000
+#define K1352_COPYOUT               0x00000000
 struct kexec_ctx {
   void *syscall_handler;
   unsigned int sw_ver;
