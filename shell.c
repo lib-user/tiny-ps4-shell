@@ -224,7 +224,7 @@ shell_fork(main_t *main, int argc, char **argv) {
     return rc;
     
   } else if (pid < 0) {
-    fprintf(stderr, "fork: %s\n", strerror(errno));
+    optind = 1; return main(argc, argv);
     return -1;
     
   } else {
