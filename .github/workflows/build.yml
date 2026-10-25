@@ -7,16 +7,18 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-10 lld-10 imagemagick dotnet-runtime-3.1
+          sudo apt-get install -y clang lld imagemagick
+          sudo ln -sf $(which clang) /usr/local/bin/clang-10
+          sudo ln -sf $(which ld.lld) /usr/local/bin/ld.lld-10
 
       - name: Setup OpenOrbis Toolchain
         run: |
@@ -29,7 +31,7 @@ jobs:
           OO_PS4_TOOLCHAIN: /opt/OpenOrbis-PS4-Toolchain
         run: |
           export PATH=$PATH:$OO_PS4_TOOLCHAIN/bin/linux
-          make
+          make CC=clang LD=ld.lld
 
       - name: Upload PKG as Artifact
         uses: actions/upload-artifact@v4
