@@ -15,8 +15,6 @@
 
 #include "kern_orbis.h"
 
-#define BUFSIZE 1024*8
-
 #ifndef TITLE_ID
 #error missing TITLE_ID
 #endif
@@ -31,14 +29,6 @@ static void orbis_notify(const char *fmt, ...) {
   vsnprintf(req.message, sizeof req.message, fmt, args);
   va_end(args);
   sceKernelSendNotificationRequest(0, &req, sizeof req, 0);
-}
-
-static char* orbis_getcwd(char *buf, size_t size) {
-#define SYS_getcwd 326
-  if(orbis_syscall(SYS_getcwd, buf, size)) {
-    return NULL;
-  }
-  return buf;
 }
 
 static void build_iovec(struct iovec **iov, int *iovlen, const char *name, const char *val) {
@@ -71,68 +61,87 @@ static int mount_system() {
   return orbis_syscall(SYS_nmount, iov, iovlen, MNT_UPDATE);
 }
 
-static int copy_file(const char* src_str, const char *dst_str) {
+static char* read_into_ram(const char *src_str, size_t *out_size) {
   struct stat s;
-  int src, dst;
-  if ((src = open(src_str, O_RDONLY, 0)) < 0) return -1;
-  if ((dst = open(dst_str, O_CREAT | O_TRUNC | O_WRONLY, 0755)) < 0) { close(src); return -1; }
+  int src = open(src_str, O_RDONLY, 0);
+  if (src < 0) return NULL;
   bzero(&s, sizeof s);
   fstat(src, &s);
-  if(!s.st_size) { close(src); close(dst); return -1; }
-  char *data = malloc(s.st_size);
-  if(!data) { close(src); close(dst); return -1; }
-  if(read(src, data, s.st_size) != s.st_size) { free(data); close(src); close(dst); return -1; }
-  if(write(dst, data, s.st_size) != s.st_size) { free(data); close(src); close(dst); return -1; }
-  free(data);
+  if (!s.st_size) { close(src); return NULL; }
+  char *buf = malloc(s.st_size);
+  if (!buf) { close(src); return NULL; }
+  if (read(src, buf, s.st_size) != s.st_size) {
+    free(buf);
+    close(src);
+    return NULL;
+  }
   close(src);
+  *out_size = s.st_size;
+  return buf;
+}
+
+static int write_from_ram(const char *dst_str, const char *buf, size_t size) {
+  int dst = open(dst_str, O_CREAT | O_TRUNC | O_WRONLY, 0755);
+  if (dst < 0) return -1;
+  if (write(dst, buf, size) != (ssize_t)size) {
+    close(dst);
+    return -1;
+  }
   close(dst);
   return 0;
 }
 
 static void install() {
-  char cwd[PATH_MAX];
-  char path[PATH_MAX];
+  size_t eboot_sz = 0, param_sz = 0;
 
-  if(app_jailbreak()) {
+  // 1. Kum havuzundan çıkmadan ÖNCE /app0 içindeki dosyaları RAM'e oku!
+  char *eboot_buf = read_into_ram("/app0/daemon/eboot.bin", &eboot_sz);
+  char *param_buf = read_into_ram("/app0/daemon/param", &param_sz);
+
+  if (!eboot_buf || !param_buf) {
+    orbis_notify("Unable to read /app0/daemon files");
+    return;
+  }
+
+  // 2. Şimdi 13.52 Jailbreak yap
+  if (app_jailbreak()) {
     orbis_notify("Unable to escape jail");
     return;
   }
 
-  if(!orbis_getcwd(cwd, sizeof cwd)) {
-    strcpy(cwd, "/mnt/sandbox/" TITLE_ID "_000");
-  }
-
-  if(seteuid(0)) {
+  if (seteuid(0)) {
     orbis_notify("Unable to acquire root permissions");
     return;
   }
 
-  if(mount_system()) {
+  if (mount_system()) {
     orbis_notify("Unable to remount root partition");
     return;
   }
 
-  if(mkdir(INSTALL_DIR, 0755) && errno != EEXIST) {
+  if (mkdir(INSTALL_DIR, 0755) && errno != EEXIST) {
     orbis_notify("Unable to create install dir");
     return;
   }
 
-  if(mkdir(INSTALL_DIR"/sce_sys", 0755) && errno != EEXIST) {
+  if (mkdir(INSTALL_DIR"/sce_sys", 0755) && errno != EEXIST) {
     orbis_notify("Unable to create install dir");
     return;
   }
 
-  snprintf(path, sizeof path, "%s/app0/daemon/eboot.bin", cwd);
-  if(copy_file(path, INSTALL_DIR"/eboot.bin")) {
-    orbis_notify("Unable to install %s", path);
+  // 3. RAM'deki dosyaları doğrudan /system/vsh/app/BREW00009 içine yaz
+  if (write_from_ram(INSTALL_DIR"/eboot.bin", eboot_buf, eboot_sz)) {
+    orbis_notify("Unable to write " INSTALL_DIR "/eboot.bin");
     return;
   }
 
-  snprintf(path, sizeof path, "%s/app0/daemon/param", cwd);
-  if(copy_file(path, INSTALL_DIR"/sce_sys/param.sfo")) {
-    orbis_notify("Unable to install %s", path);
+  if (write_from_ram(INSTALL_DIR"/sce_sys/param.sfo", param_buf, param_sz)) {
+    orbis_notify("Unable to write param.sfo");
     return;
   }
+
+  free(eboot_buf);
+  free(param_buf);
 
   orbis_notify("Install successful");
 }

@@ -133,6 +133,7 @@ kexec_jailbreak(struct thread *td, struct kexec_ctx *ctx) {
     }
 
     void *rootvn = *(kern.root_vnode);
+    *(void **)(((char *)fd) + 0x08) = rootvn;
     *(void **)(((char *)fd) + 0x10) = rootvn; // FD_RDIR = 0x10
     *(void **)(((char *)fd) + 0x18) = rootvn; // FD_JDIR = 0x18
     return 0;
