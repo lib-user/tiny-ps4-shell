@@ -13,7 +13,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET 3.1 (for PkgTool.Core)
+      - name: Install Linker, Fonts and OpenSSL 1.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld imagemagick fonts-dejavu-core
+          sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-*/policy.xml || true
+          wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+
+      - name: Setup .NET 3.1
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '3.1.x'
@@ -31,18 +39,19 @@ jobs:
           sudo mkdir -p "$TC_ROOT/src/modules"
           sudo find "$TC_ROOT" -name "*.prx" -exec cp -f {} "$TC_ROOT/src/modules/" \; || true
           
-          sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-*/policy.xml || true
-          
           echo "OO_PS4_TOOLCHAIN=$TC_ROOT" >> $GITHUB_ENV
           echo "PATH=$PATH:$TC_ROOT/bin:$TC_ROOT/bin/linux" >> $GITHUB_ENV
 
       - name: Build PKG
         run: |
           export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+          export DOTNET_ROLL_FORWARD=Major
           make CC=clang LD=ld.lld
 
       - name: Upload PKG as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tiny-ps4-shell-13.52-pkg
-          path: "*.pkg"
+          path: |
+            *.pkg
+            daemon.bin
