@@ -61,7 +61,7 @@ $(CONTENT_ID).pkg: install.gp4 $(PKG_FILES)
 
 install.sfo:
 	PkgTool.Core sfo_new $@
-	PkgTool.Core sfo_setentry $@ APP_TYPE --type Integer --maxsize 4 --value 1
+	PkgTool.Core sfo_setentry $@ APP_TYPE --type Integer --maxsize 4 --value 2
 	PkgTool.Core sfo_setentry $@ APP_VER --type Utf8 --maxsize 8 --value '$(VERSION)'
 	PkgTool.Core sfo_setentry $@ ATTRIBUTE --type Integer --maxsize 4 --value 0
 	PkgTool.Core sfo_setentry $@ CATEGORY --type Utf8 --maxsize 4 --value 'gd'
