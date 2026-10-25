@@ -16,21 +16,35 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld imagemagick
+          sudo apt-get install -y clang lld imagemagick fonts-freefont-ttf
           sudo ln -sf $(which clang) /usr/local/bin/clang-10
           sudo ln -sf $(which ld.lld) /usr/local/bin/ld.lld-10
+          sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-*/policy.xml || true
 
       - name: Setup OpenOrbis Toolchain
         run: |
-          wget https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.2/OpenOrbis_PS4_Toolchain_v0.5.2_Linux.tar.gz
-          sudo tar -xzf OpenOrbis_PS4_Toolchain_v0.5.2_Linux.tar.gz -C /opt
-          sudo chmod -R +x /opt/OpenOrbis-PS4-Toolchain/bin/linux
+          curl -sSL -o toolchain.tar.gz https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+          sudo mkdir -p /opt/OpenOrbis
+          sudo tar -xzf toolchain.tar.gz -C /opt/OpenOrbis
+          
+          # Toolchain klasörünü otomatik bul
+          CREATE_FSELF=$(find /opt/OpenOrbis -name "create-fself" | head -n 1)
+          TOOLCHAIN_DIR=$(dirname $(dirname "$CREATE_FSELF"))
+          echo "Toolchain bulundu: $TOOLCHAIN_DIR"
+          
+          sudo chmod -R +x "$TOOLCHAIN_DIR/bin/linux"
+          
+          # Modül dosyalarını bağla
+          sudo mkdir -p "$TOOLCHAIN_DIR/src/modules"
+          sudo find /opt/OpenOrbis -name "libc.prx" -exec cp -f {} "$TOOLCHAIN_DIR/src/modules/" \; || true
+          sudo find /opt/OpenOrbis -name "libSceFios2.prx" -exec cp -f {} "$TOOLCHAIN_DIR/src/modules/" \; || true
+          
+          echo "OO_PS4_TOOLCHAIN=$TOOLCHAIN_DIR" >> $GITHUB_ENV
+          echo "PATH=$PATH:$TOOLCHAIN_DIR/bin/linux" >> $GITHUB_ENV
 
       - name: Build PKG
-        env:
-          OO_PS4_TOOLCHAIN: /opt/OpenOrbis-PS4-Toolchain
         run: |
-          export PATH=$PATH:$OO_PS4_TOOLCHAIN/bin/linux
+          export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
           make CC=clang LD=ld.lld
 
       - name: Upload PKG as Artifact
