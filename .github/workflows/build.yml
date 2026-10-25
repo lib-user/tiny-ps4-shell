@@ -13,13 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Setup Compiler
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang lld imagemagick fonts-freefont-ttf
           sudo ln -sf $(which clang) /usr/local/bin/clang-10
           sudo ln -sf $(which ld.lld) /usr/local/bin/ld.lld-10
-          sudo sed -i 's/rights="none"/rights="read|write"/g' /etc/ImageMagick-*/policy.xml || true
 
       - name: Setup OpenOrbis Toolchain
         run: |
@@ -27,20 +24,19 @@ jobs:
           sudo mkdir -p /opt/OpenOrbis
           sudo tar -xzf toolchain.tar.gz -C /opt/OpenOrbis
           
-          # Toolchain klasörünü otomatik bul
-          CREATE_FSELF=$(find /opt/OpenOrbis -name "create-fself" | head -n 1)
-          TOOLCHAIN_DIR=$(dirname $(dirname "$CREATE_FSELF"))
-          echo "Toolchain bulundu: $TOOLCHAIN_DIR"
+          TC_ROOT="/opt/OpenOrbis/OpenOrbis/PS4Toolchain"
+          sudo chmod -R +x "$TC_ROOT/bin"
           
-          sudo chmod -R +x "$TOOLCHAIN_DIR/bin/linux"
+          # Makefile'ın aradığı bin/linux klasörünü bağla
+          sudo mkdir -p "$TC_ROOT/bin/linux"
+          sudo cp -rf "$TC_ROOT/bin/"* "$TC_ROOT/bin/linux/" 2>/dev/null || true
           
-          # Modül dosyalarını bağla
-          sudo mkdir -p "$TOOLCHAIN_DIR/src/modules"
-          sudo find /opt/OpenOrbis -name "libc.prx" -exec cp -f {} "$TOOLCHAIN_DIR/src/modules/" \; || true
-          sudo find /opt/OpenOrbis -name "libSceFios2.prx" -exec cp -f {} "$TOOLCHAIN_DIR/src/modules/" \; || true
+          # PRX modüllerini bağla
+          sudo mkdir -p "$TC_ROOT/src/modules"
+          sudo find "$TC_ROOT" -name "*.prx" -exec cp -f {} "$TC_ROOT/src/modules/" \; || true
           
-          echo "OO_PS4_TOOLCHAIN=$TOOLCHAIN_DIR" >> $GITHUB_ENV
-          echo "PATH=$PATH:$TOOLCHAIN_DIR/bin/linux" >> $GITHUB_ENV
+          echo "OO_PS4_TOOLCHAIN=$TC_ROOT" >> $GITHUB_ENV
+          echo "PATH=$PATH:$TC_ROOT/bin:$TC_ROOT/bin/linux" >> $GITHUB_ENV
 
       - name: Build PKG
         run: |
